@@ -14,5 +14,8 @@ for folder in dir_folders: #iterate through all 4 preprocessed image folders
         if os.path.isfile(path_preprocessed+"/"+folder+"/"+image): #ensure path is an existing file
             open_im = Image.open(path_preprocessed+"/"+folder+"/"+image) #open image so it can be resized
             resized_image = open_im.resize((572,572)) #resize the image
-            resized_image.save(path_processed+"/"+folder+"/"+image) #save it to the processed folder with the same name 
 
+            if("regular" in folder): #check if rgb image- not for the segmented ones 
+                resized_image = resized_image.convert('LA') #changes images to grayscale (if your data set is RGB) -can comment out if already grayscale
+
+            resized_image.save(path_processed+"/"+folder+"/"+image) #save it to the processed folder with the same name 
