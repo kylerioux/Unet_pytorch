@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-#from DataLoader import myFunc
+# this python file contains the network architecture of a U-net.
 
 def double_conv(in_c,out_c):
     #function representing the double convolutions  present in UNet architecture
@@ -112,4 +112,3 @@ if __name__=="__main__":
 
     print(model(image))
     
-    #myfunc()
