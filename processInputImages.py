@@ -1,6 +1,10 @@
 from PIL import Image
 import os, sys
 
+# The execution of this python code reads in images stored in the images/preprocessed folder
+# and resizes all images (segmentations and source), as well as changing rgb source images to grayscale
+# the processed images are saved with the same name in the images/processed folder
+
 path_preprocessed = "images/preprocessed" #path to preprocessed images
 path_processed = "images/processed" #path to images once processed - will store here
 
@@ -16,6 +20,6 @@ for folder in dir_folders: #iterate through all 4 preprocessed image folders
             resized_image = open_im.resize((572,572)) #resize the image
 
             if("regular" in folder): #check if rgb image- not for the segmented ones 
-                resized_image = resized_image.convert('LA') #changes images to grayscale (if your data set is RGB) -can comment out if already grayscale
+                resized_image = resized_image.convert('L') #changes images to grayscale (if your data set is RGB) -can comment out if already grayscale
 
             resized_image.save(path_processed+"/"+folder+"/"+image) #save it to the processed folder with the same name 
