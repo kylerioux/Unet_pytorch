@@ -106,9 +106,10 @@ class UNet(nn.Module):
 
         
 if __name__=="__main__":  
-    image = torch.rand((1,1,572,572))#creating a test image
+    #image = torch.rand((1,1,572,572))#creating a test image
     
-    model = UNet()
+    #model = UNet()
 
-    print(model(image))
+    #print(model(image))
+    print("in main of Unet")
     

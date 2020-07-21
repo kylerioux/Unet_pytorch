@@ -32,6 +32,8 @@ import concurrent.futures
 # warning print supression
 warnings.filterwarnings("ignore")
 
+from UNet import UNet # get the U-net model 
+
 # image directories
 train_img_dir = 'images/processed_images/train'
 train_img_masks_dir = 'images/processed_images/train_masks'
@@ -185,3 +187,14 @@ class Trainer(object):
                 state["best_loss"] = self.best_loss = val_loss
                 torch.save(state, "./model_office.pth")
             print ()
+
+def main():
+    print("in main of train")
+    model = UNet()
+    model_trainer = Trainer(model)
+    model_trainer.start()
+    #image = torch.rand((1,1,572,572))#creating a test image
+    #print(model(image))
+
+if __name__=="__main__": 
+    main()
