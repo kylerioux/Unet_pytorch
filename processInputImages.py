@@ -1,9 +1,10 @@
 from PIL import Image
 import os, sys
 
-# The execution of this python code reads in images stored in the images/preprocessed folder
-# and resizes all images (segmentations and source), as well as changing rgb source images to grayscale
-# the processed images are saved with the same name in the images/processed folder
+# The execution of this python code reads in images stored in the images/preprocessed_images folder
+# and resizes all images (segmentations and source) to 572x572, the size accepted by the network.
+# RGB source images are also converted to grayscale
+# the processed images are saved with the same name in the images/processed_images folder
 
 path_preprocessed = "images/preprocessed_images" # path to preprocessed images
 path_processed = "images/processed_images" # path to images once processed - will store here
