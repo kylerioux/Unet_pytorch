@@ -17,7 +17,7 @@ import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader, Dataset, sampler
 # architecture and data split library
 from sklearn.model_selection import train_test_split
-#import segmentation_models_pytorch as smp -- this was to get u-net architecture
+import segmentation_models_pytorch as smp #-- this was to get u-net architecture
 # augmenation library
 from albumentations import (HorizontalFlip, ShiftScaleRotate, Normalize, Resize, Compose, GaussNoise)
 from albumentations.pytorch import ToTensor
@@ -38,6 +38,37 @@ from UNet import UNet # get the U-net model
 train_img_dir = 'images/processed_images/train'
 train_img_masks_dir = 'images/processed_images/train_masks'
 
+#kaggle images
+import pathlib2
+from pathlib2 import Path
+
+PATH = Path('/kaggle_data')
+
+# using fastai below lines convert the gif image to pil image.
+(PATH/'train_masks_png').mkdir(exist_ok=True)
+def convert_img(fn):
+    fn = fn.name
+    PIL.Image.open(PATH/'train_masks'/fn).save(PATH/'train_masks_png'/f'{fn[:-4]}.png') #opening and saving image
+files = list((PATH/'train_masks').iterdir())
+with concurrent.futures.ThreadPoolExecutor(8) as e: e.map(convert_img, files)  #uses multi thread for fast conversion
+
+# we convert the high resolution image mask to 128*128 for starting for the masks.
+(PATH/'train_masks-128').mkdir(exist_ok=True)
+def resize_mask(fn):
+    PIL.Image.open(fn).resize((128,128)).save((fn.parent.parent)/'train_masks-128'/fn.name)
+
+files = list((PATH/'train_masks_png').iterdir())
+with concurrent.futures.ThreadPoolExecutor(8) as e: e.map(resize_mask, files)
+
+# # # we convert the high resolution input image to 128*128
+(PATH/'train-128').mkdir(exist_ok=True)
+def resize_img(fn):
+    PIL.Image.open(fn).resize((128,128)).save((fn.parent.parent)/'train-128'/fn.name)
+
+files = list((PATH/'train').iterdir())
+with concurrent.futures.ThreadPoolExecutor(8) as e: e.map(resize_img, files)
+
+#read csv file of image names
 df=pd.read_csv('image_names.csv')
 
 #mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
@@ -73,6 +104,7 @@ class CityDataset(Dataset):
         mask_name_path = os.path.join(self.train_img_masks_dir,name)
 
         img = cv2.imread(img_name_path, cv2.IMREAD_GRAYSCALE) #added to make this grayscale similar to below line
+        #img = cv2.imread(img_name_path) #non grayscale (rgb) version 
         mask = cv2.imread(mask_name_path, cv2.IMREAD_GRAYSCALE)
         augmentation = self.transform(image=img, mask=mask)
         img_aug = augmentation['image'] #[1,572,572] type:Tensor
@@ -159,7 +191,13 @@ class Trainer(object):
         print(pred_mask)
         print()
 
-        #so pred mask is tensor [1,2,388,388], target mask is [1,1,572,572]
+        print()
+        print("tar_mask mask is: ")
+        print(tar_mask)
+        print()
+
+        # so pred mask is tensor [1,2,388,388], target mask is [1,1,388,388]
+        # target mask is the one from my preprocessing, pred is what came out of my Unet
         loss = self.criterion(pred_mask,tar_mask)
         return loss, pred_mask
 
@@ -211,9 +249,15 @@ class Trainer(object):
 
 def main():
     #print("in main of train")
+    
+    #model2 = smp.Unet("resnet18", encoder_weights="imagenet", classes=1, activation=None)
+    #model_trainer2 = Trainer(model2)
+    #model_trainer2.start()
+    
     model = UNet()
     model_trainer = Trainer(model)
     model_trainer.start()
+    
     #image = torch.rand((1,1,572,572))#creating a test image
     #print(model(image))
 
