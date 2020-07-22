@@ -40,7 +40,9 @@ train_img_masks_dir = 'images/processed_images/train_masks'
 
 df=pd.read_csv('files_path.csv')
 
-mean, std=(0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # can remove this later, only matters if I was using imagenet
+#mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
+mean = 0
+std = 255
 
 # during traning eval phase make a list of transforms to be used.
 # inputs "phase", mean, std
@@ -69,6 +71,7 @@ class CityDataset(Dataset):
         img_name_path = os.path.join(self.train_img_dir,name)
         # mask_name_path=img_name_path.split('.')[0].replace('train-128','train_masks-128')+'_mask.png'
         mask_name_path = os.path.join(self.train_img_masks_dir,name)
+
         img = cv2.imread(img_name_path, cv2.IMREAD_GRAYSCALE) #added to make this grayscale similar to below line
         mask = cv2.imread(mask_name_path, cv2.IMREAD_GRAYSCALE)
         augmentation = self.transform(image=img, mask=mask)
@@ -89,7 +92,7 @@ def CityDataloader(df,train_img_dir,train_img_masks_dir,mean,std,phase,batch_siz
     return dataloader
 
 #dice scores
-def dice_score(pred, targs):
+def dice_score(pred,targs):
     pred = (pred>0).float()
     return 2. * (pred*targs).sum() / (pred+targs).sum()
 
@@ -101,7 +104,7 @@ class Scores:
 
     def update(self, targets, outputs):
         probs = outputs
-        dice= dice_score(probs, targets)
+        dice = dice_score(probs, targets)
         self.base_dice_scores.append(dice)
 
     def get_metrics(self):
@@ -111,66 +114,66 @@ class Scores:
 #return dice score for epoch when called
 def epoch_log(epoch_loss, measure):
     #logging the metrics at the end of an epoch
-    dices= measure.get_metrics()    
-    dice= dices                       
+    dices = measure.get_metrics()    
+    dice = dices                       
     print("Loss: %0.4f |dice: %0.4f" % (epoch_loss, dice))
     return dice
 
 class Trainer(object):
     def __init__(self,model):
-        self.num_workers=4
-        self.batch_size={'train':1, 'val':1}
-        self.accumulation_steps=4//self.batch_size['train']
+        self.num_workers = 4
+        self.batch_size = {'train':1, 'val':1}
+        self.accumulation_steps = 4//self.batch_size['train']
         self.lr=5e-4
-        self.num_epochs=10
-        self.phases=['train','val']
-        self.best_loss=float('inf')
-        self.device=torch.device("cuda:0")
+        self.num_epochs = 10
+        self.phases = ['train','val']
+        self.best_loss = float('inf')
+        self.device = torch.device("cuda:0")
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
-        self.net=model.to(self.device)
-        cudnn.benchmark= True
-        self.criterion=torch.nn.BCEWithLogitsLoss()
-        self.optimizer=optim.Adam(self.net.parameters(),lr=self.lr)
-        self.scheduler=ReduceLROnPlateau(self.optimizer,mode='min',patience=3, verbose=True)
+        self.net = model.to(self.device)
+        cudnn.benchmark = True
+        self.criterion = torch.nn.BCEWithLogitsLoss()
+        self.optimizer = optim.Adam(self.net.parameters(),lr=self.lr)
+        self.scheduler = ReduceLROnPlateau(self.optimizer,mode='min',patience=3,verbose=True)
         print("before dataloader called")
-        self.dataloaders={phase: CityDataloader(df, train_img_dir,train_img_masks_dir, mean, std,
+        self.dataloaders = {phase: CityDataloader(df, train_img_dir,train_img_masks_dir, mean, std,
                                                 phase=phase,batch_size=self.batch_size[phase],
                                                 num_workers=self.num_workers) for phase in self.phases}
 
-        self.losses={phase:[] for phase in self.phases}
-        self.dice_score={phase:[] for phase in self.phases}
+        self.losses = {phase:[] for phase in self.phases}
+        self.dice_score = {phase:[] for phase in self.phases}
 
-    def forward(self, inp_images, tar_mask):
-        inp_images=inp_images.to(self.device)
-        tar_mask=tar_mask.to(self.device)
-        pred_mask=self.net(inp_images)
-        loss=self.criterion(pred_mask,tar_mask)
+    def forward(self,inp_images,tar_mask):
+        inp_images = inp_images.to(self.device)
+        tar_mask = tar_mask.to(self.device)
+        pred_mask = self.net(inp_images)
+        loss = self.criterion(pred_mask,tar_mask)
         return loss, pred_mask
 
-    def iterate(self, epoch, phase):
-        measure=Scores(phase, epoch)
-        start=time.strftime("%H:%M:%S")
+    def iterate(self,epoch,phase):
+        measure = Scores(phase, epoch)
+        start = time.strftime("%H:%M:%S")
         print (f"Starting epoch: {epoch} | phase:{phase} | ':{start}")
-        batch_size=self.batch_size[phase]
+        batch_size = self.batch_size[phase]
         self.net.train(phase=="train")
-        dataloader=self.dataloaders[phase]
-        running_loss=0.0
-        total_batches=len(dataloader)
+        dataloader = self.dataloaders[phase]
+        running_loss = 0.0
+        total_batches = len(dataloader)
         self.optimizer.zero_grad()
         for itr,batch in enumerate(dataloader):
-            images,mask_target=batch
-            loss, pred_mask=self.forward(images,mask_target)
-            loss=loss/self.accumulation_steps
+            images,mask_target = batch
+            loss, pred_mask = self.forward(images,mask_target)
+            loss = loss/self.accumulation_steps
             if phase=='train':
                 loss.backward()
                 if (itr+1) % self.accumulation_steps ==0:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
-            running_loss+=loss.item()
-            pred_mask=pred_mask.detach().cpu()
+            running_loss += loss.item()
+            pred_mask = pred_mask.detach().cpu()
             measure.update(mask_target,pred_mask)
-        epoch_loss=(running_loss*self.accumulation_steps)/total_batches
-        dice=epoch_log(phase, epoch, epoch_loss, measure, start)
+        epoch_loss = (running_loss*self.accumulation_steps)/total_batches
+        dice = epoch_log(phase, epoch, epoch_loss, measure, start)
         self.losses[phase].append(epoch_loss)
         self.dice_score[phase].append(dice)
         torch.cuda.empty_cache()
@@ -185,7 +188,7 @@ class Trainer(object):
                 "optimizer": self.optimizer.state_dict(),
             }
             with torch.no_grad():
-                val_loss=self.iterate(epoch,"val")
+                val_loss = self.iterate(epoch,"val")
                 self.scheduler.step(val_loss)
             if val_loss < self.best_loss:
                 print("******** New optimal weights found, saving state ********")
