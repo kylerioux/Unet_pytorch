@@ -1,4 +1,3 @@
-#something like this - https://datascience.stackexchange.com/questions/49094/how-to-transform-a-folder-of-images-into-csv-file
 import os
 import pandas as pd
 
@@ -15,4 +14,4 @@ df = pd.DataFrame()
 df['images'] = [str(x) for x in images]
 df['labels'] = [str(x) for x in images]
 
-df.to_csv('files_path.csv', header="images")
+df.to_csv('image_names.csv', header="images")

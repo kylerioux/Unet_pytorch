@@ -38,7 +38,7 @@ from UNet import UNet # get the U-net model
 train_img_dir = 'images/processed_images/train'
 train_img_masks_dir = 'images/processed_images/train_masks'
 
-df=pd.read_csv('files_path.csv')
+df=pd.read_csv('image_names.csv')
 
 #mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
 mean = 0
@@ -135,7 +135,7 @@ class Trainer(object):
         self.criterion = torch.nn.BCEWithLogitsLoss()
         self.optimizer = optim.Adam(self.net.parameters(),lr=self.lr)
         self.scheduler = ReduceLROnPlateau(self.optimizer,mode='min',patience=3,verbose=True)
-        print("before dataloader called")
+        #print("before dataloader called")
         self.dataloaders = {phase: CityDataloader(df, train_img_dir,train_img_masks_dir, mean, std,
                                                 phase=phase,batch_size=self.batch_size[phase],
                                                 num_workers=self.num_workers) for phase in self.phases}
@@ -146,7 +146,14 @@ class Trainer(object):
     def forward(self,inp_images,tar_mask):
         inp_images = inp_images.to(self.device)
         tar_mask = tar_mask.to(self.device)
+        inp_images = inp_images.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
         pred_mask = self.net(inp_images)
+        #print("pred mask is: ")
+        #print(pred_mask)
+        #print("tar mask is: "+tar_mask)
+        type(pred_mask)
+        type(tar_mask)
+        #so pred_mask is None, tar_mask is tensor
         loss = self.criterion(pred_mask,tar_mask)
         return loss, pred_mask
 
@@ -164,7 +171,7 @@ class Trainer(object):
             images,mask_target = batch
             loss, pred_mask = self.forward(images,mask_target)
             loss = loss/self.accumulation_steps
-            if phase=='train':
+            if phase == 'train':
                 loss.backward()
                 if (itr+1) % self.accumulation_steps ==0:
                     self.optimizer.step()
@@ -197,7 +204,7 @@ class Trainer(object):
             print ()
 
 def main():
-    print("in main of train")
+    #print("in main of train")
     model = UNet()
     model_trainer = Trainer(model)
     model_trainer.start()

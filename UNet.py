@@ -94,22 +94,31 @@ class UNet(nn.Module):
         
         pre_flattened_outp = self.output(outp17)
 
+        print("ore-flattened outp size is:")
         print(pre_flattened_outp.size())
 
+        print("ore-flattened outp is:")
+        print(pre_flattened_outp)
+
+        return pre_flattened_outp
+
         #flatten output- classify based on channel (label) with highest value
-        flattened_outp = torch.argmax(pre_flattened_outp.squeeze(),dim=0).detach().cpu().numpy()
+        #flattened_outp = torch.argmax(pre_flattened_outp.squeeze(),dim=0).detach().cpu().numpy() --can do this step in inference
+        #return flattened_outp
         #note this is no longer a tensor.
 
-        print(flattened_outp.shape)
-        print(flattened_outp)
-        print(np.unique(flattened_outp))
+        #print("flatened output shape is: ")
+        #print(flattened_outp.shape)
+        #print("flattened output is: ")
+        #print(flattened_outp)
+        #print(np.unique(flattened_outp))
 
         
 if __name__=="__main__":  
-    #image = torch.rand((1,1,572,572))#creating a test image
-    
-    #model = UNet()
+    image = torch.rand((1,1,572,572))#creating a test image
+    #print(image)
+    model = UNet()
 
-    #print(model(image))
+    print(model(image))
     print("in main of Unet")
     
