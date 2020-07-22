@@ -151,9 +151,15 @@ class Trainer(object):
         #print("pred mask is: ")
         #print(pred_mask)
         #print("tar mask is: "+tar_mask)
-        type(pred_mask)
-        type(tar_mask)
-        #so pred_mask is None, tar_mask is tensor
+        #type(pred_mask)
+        #type(tar_mask)
+
+        print()
+        print("predicted mask is: ")
+        print(pred_mask)
+        print()
+
+        #so pred mask is tensor [1,2,388,388], target mask is [1,1,572,572]
         loss = self.criterion(pred_mask,tar_mask)
         return loss, pred_mask
 

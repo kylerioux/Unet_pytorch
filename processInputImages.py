@@ -24,12 +24,13 @@ for folder in dir_folders: # iterate through all 4 preprocessed image folders
     
         if os.path.isfile(path_preprocessed+"/"+folder+"/"+image): # ensure path is an existing file
             open_im = Image.open(path_preprocessed+"/"+folder+"/"+image) # open image so it can be resized
-            resized_image = open_im.resize((572,572)) # resize the image
             
             # save images in their respective folders depending on whether they are 
             if("regular" in folder): # only perform this on base images- not segmentation masks
+                resized_image = open_im.resize((572,572)) # resize the image
                 resized_image = resized_image.convert('L') # changes images to grayscale (if your data set is RGB) - if already grayscale shouldn't change anything
                 resized_image.save(path_processed +"/"+ currentData +"/"+ image) # save it to the processed folder with the same name
 
             else: # this is for the segmentation masks
+                resized_image = open_im.resize((388,388)) # resize the image
                 resized_image.save(path_processed+ "/"+ currentData + "_masks" +"/"+ image) # save it to the processed folder with the same name
