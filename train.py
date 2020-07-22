@@ -38,6 +38,10 @@ from UNet import UNet # get the U-net model
 train_img_dir = 'images/processed_images/train'
 train_img_masks_dir = 'images/processed_images/train_masks'
 
+df=pd.read_csv('files_path.csv')
+
+mean, std=(0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # can remove this later, only matters if I was using imagenet
+
 # during traning eval phase make a list of transforms to be used.
 # inputs "phase", mean, std
 # outputs list of transformations
@@ -53,13 +57,13 @@ def get_transform(phase,mean,std):
 # applys transformation and returns it
 class CityDataset(Dataset):
     def __init__(self, df, train_img_dir, train_img_masks_dir, mean, std, phase):
-        self.fname = df['img'].values.tolist()
+        self.fname = df['images'].values.tolist()
         self.train_img_dir = train_img_dir
         self.train_img_masks_dir = train_img_masks_dir
         self.mean = mean
         self.std = std
         self.phase = phase
-        self.trasnform = get_transform(phase,mean,std)
+        self.transform = get_transform(phase,mean,std)
     def __getitem__(self, idx):
         name = self.fname[idx]
         img_name_path = os.path.join(self.train_img_dir,name)
@@ -67,7 +71,7 @@ class CityDataset(Dataset):
         mask_name_path = os.path.join(self.train_img_masks_dir,name)
         img = cv2.imread(img_name_path, cv2.IMREAD_GRAYSCALE) #added to make this grayscale similar to below line
         mask = cv2.imread(mask_name_path, cv2.IMREAD_GRAYSCALE)
-        augmentation = self.trasnform(image=img, mask=mask)
+        augmentation = self.transform(image=img, mask=mask)
         img_aug = augmentation['image'] #[1,572,572] type:Tensor
         mask_aug = augmentation['mask'] #[1,572,572] type:Tensor
         return img_aug, mask_aug
@@ -128,6 +132,7 @@ class Trainer(object):
         self.criterion=torch.nn.BCEWithLogitsLoss()
         self.optimizer=optim.Adam(self.net.parameters(),lr=self.lr)
         self.scheduler=ReduceLROnPlateau(self.optimizer,mode='min',patience=3, verbose=True)
+        print("before dataloader called")
         self.dataloaders={phase: CityDataloader(df, train_img_dir,train_img_masks_dir, mean, std,
                                                 phase=phase,batch_size=self.batch_size[phase],
                                                 num_workers=self.num_workers) for phase in self.phases}
