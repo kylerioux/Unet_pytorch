@@ -51,7 +51,7 @@ class UNet(nn.Module):
         self.trans_conv_2x2_4 = nn.ConvTranspose2d(128,64,kernel_size=2,stride=2)
         self.up_conv_4 = double_conv(128,64) #input to this is the concatinated tensors
 
-        self.output = nn.Conv2d(in_channels=64,out_channels=2, kernel_size=1)#out_channels is number of segmentation labels
+        self.output = nn.Conv2d(in_channels=64,out_channels=12, kernel_size=1)#out_channels is number of segmentation labels
 
     def forward(self,image):
         #this is the encoder (forward pass)
