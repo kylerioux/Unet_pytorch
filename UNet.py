@@ -99,8 +99,33 @@ class UNet(nn.Module):
 
         print("pre-flattened outp is:")
         print(pre_flattened_outp)
+        print(pre_flattened_outp.size())
 
         return pre_flattened_outp
+
+        # #prepare it to be compared with target mask
+        # outp_test = torch.argmax(pre_flattened_outp.squeeze(),dim=0).detach().cpu().numpy() 
+
+        # print("testing output:" )
+        # print(outp_test)
+        # print(type(outp_test))
+        # print(outp_test.shape)
+        # print(np.unique(outp_test))
+        # my_tensor = torch.from_numpy(outp_test)
+
+        # print("now its a tensor")
+        # print(my_tensor)
+        # print(my_tensor.size())
+        # ##squeeze it twice to add dims?
+        # my_tensor = my_tensor.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
+        # print(my_tensor.size())
+        # my_tensor = my_tensor.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
+        # print(my_tensor)
+        # print(my_tensor.size())
+        # my_tensor = my_tensor.type(torch.FloatTensor)
+        # my_tensor=my_tensor.cuda() #cuda expected but got cpu
+        #return my_tensor 
+        #return pre_flattened_outp 
 
         #flatten output- classify based on channel (label) with highest value
         #flattened_outp = torch.argmax(pre_flattened_outp.squeeze(),dim=0).detach().cpu().numpy() --can do this step in inference
@@ -110,14 +135,14 @@ class UNet(nn.Module):
         #print(flattened_outp.shape)
         #print("flattened output is: ")
         #print(flattened_outp)
-        #print(np.unique(flattened_outp))
+        #print(np.unique(flattened_outp)) # this is to get unique values in an array
 
         
 if __name__=="__main__":  
-    image = torch.rand((1,1,572,572))#creating a test image
+    #image = torch.rand((1,1,572,572))#creating a test image
     #print(image)
-    model = UNet()
+    #model = UNet()
 
-    print(model(image))
+    #print(model(image))
     print("in main of Unet")
     
