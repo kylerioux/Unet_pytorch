@@ -128,25 +128,10 @@ class CityDataset(Dataset):
         #img = cv2.imread(img_name_path) #non grayscale (rgb) version 
         mask = cv2.imread(mask_name_path, cv2.IMREAD_GRAYSCALE)
 
-        # print("img aug shape")
-        # print(img.shape)
-        # print("mask aug shape")
-        # print(mask.shape)
-
         augmentation = self.transform(image=img,mask=mask)
-       
-        # print("augmentation is: ")
-        # print(augmentation)
 
         img_aug = augmentation['image'] #[1,572,572] type:Tensor
         mask_aug = augmentation['mask'] #[1,572,572] type:Tensor
-
-        # print("img aug")
-        # print(img_aug)
-        # print(img_aug.size())
-        # print("mask aug")
-        # print(mask_aug)
-        # print(mask_aug.size())
 
         return img_aug, mask_aug
 
@@ -207,7 +192,6 @@ class Trainer(object):
         self.criterion = torch.nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.net.parameters(),lr=self.lr)
         self.scheduler = ReduceLROnPlateau(self.optimizer,mode='min',patience=3,verbose=True)
-        #print("before dataloader called")
         self.dataloaders = {phase: CityDataloader(df, train_img_dir,train_img_masks_dir, mean, std,
                                                 phase=phase,batch_size=self.batch_size[phase],
                                                 num_workers=self.num_workers) for phase in self.phases}
@@ -218,59 +202,11 @@ class Trainer(object):
     def forward(self,inp_images,tar_mask):
         inp_images = inp_images.to(self.device)
         tar_mask = tar_mask.to(self.device)
-        # print("target mask shape is: ")
-        # print(tar_mask.shape)
-
-        # print("input im shape is: ")
-        # print(inp_images.shape)
-
         inp_images = inp_images.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
         pred_mask = self.net(inp_images)
-
-        # #prepare it to be compared with target mask
-        # outp_test = torch.argmax(pred_mask.squeeze(),dim=0).detach().cpu().numpy() 
-
-        # print("testing output:" )
-        # print(outp_test)
-        # print(type(outp_test))
-        # print(outp_test.shape)
-        # print(np.unique(outp_test))
-        # my_tensor = torch.from_numpy(outp_test)
-
-        # print("now its a tensor")
-        # print(my_tensor)
-        # print(my_tensor.size())
-        # ##squeeze it twice to add dims?
-        # my_tensor = my_tensor.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
-        # print(my_tensor.size())
-        # my_tensor = my_tensor.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
-        # print(my_tensor)
-        # print(my_tensor.size())
-        # my_tensor = my_tensor.type(torch.FloatTensor)
-        # my_tensor=my_tensor.cuda() #cuda expected but got cpu
-        # print(my_tensor)
-        # print(my_tensor.size())
-
-
-        # print()
-        # print("predicted mask is: ")
-        # print(pred_mask)
-        # print("predicted mask size is: ")
-        # print(pred_mask.size())
-        # print()
-
-        # print()
-        # print("tar_mask mask is: ")
-        # print(tar_mask)
-        # print("target mask size is: ")
-        # print(tar_mask.size())
-        # print()
-
-        # so pred mask is tensor [1,2,388,388], target mask is [1,1,388,388]
         # target mask is the one from my preprocessing, pred is what came out of my Unet
-
         tar_mask=tar_mask.long()#change it to Long type
-
+        tar_mask = tar_mask.squeeze(1) #get ris of one dim of target mask to calculate loss
         loss = self.criterion(pred_mask,tar_mask) #changed from pred_mask to my_tensor
         return loss, pred_mask #changed from pred_mask to my_tensor
 
@@ -285,18 +221,7 @@ class Trainer(object):
         total_batches = len(dataloader)
         self.optimizer.zero_grad()
         for itr,batch in enumerate(dataloader):
-
-            #print("batch is: ")
-            #print(batch)
             images,mask_target = batch
-            # print("target mask shape is: ")
-            # print(mask_target)
-            # print(mask_target.shape)
-
-            # print("input im shape is: ")
-            # print(images)
-            # print(images.shape)
-
             loss, pred_mask = self.forward(images,mask_target)
             loss = loss/self.accumulation_steps
             if phase == 'train':
