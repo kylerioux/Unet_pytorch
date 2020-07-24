@@ -6,21 +6,27 @@ import torch
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+import matplotlib.image as mpimg
 from tqdm import tqdm_notebook as tqdm # just a progress bar- uses jupyter etc
+import os
 
 from train import CityDataloader # get the U-net model 
 
 mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
 
-df = pd.read_csv('kaggle_data/train_masks_kaggle.csv') # kaggle csv
+df = pd.read_csv('image_names_specific_seg.csv') # kaggle csv
 
 # kaggle locations of images
-train_img_dir = 'kaggle_data/train-128'
-train_img_masks_dir = 'kaggle_data/train_masks-128'
+train_img_dir = 'kaggle_data/test_segment_specific/train-128'
+train_img_masks_dir = 'kaggle_data/test_segment_specific/train_masks-128'
 
 ckpt_path = 'model_office.pth'
 
 device = torch.device("cuda")
+
+inference_image = os.listdir( train_img_dir ) 
+inference_image_fullpath = train_img_dir+"/"+inference_image[0]
+img = mpimg.imread(inference_image_fullpath)
 
 if __name__=="__main__":  
     test_dataloader = CityDataloader(df,train_img_dir,train_img_masks_dir,mean,std,'val',1,4)
@@ -43,13 +49,13 @@ if __name__=="__main__":
         batch_preds = batch_preds.detach().cpu().numpy()
         ax1.imshow(np.squeeze(batch_preds),cmap='gray')
         ax2.imshow(np.squeeze(mask_target),cmap='gray')
-
+        
         # get original image on plot
         images = images.squeeze(0)
         test = images.numpy()
         test = np.rollaxis(test, 0, 3)  
 
-        ax3.imshow(test)
+        ax3.imshow(img)
 
         plt.show()
         break

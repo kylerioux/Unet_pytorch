@@ -34,12 +34,14 @@ warnings.filterwarnings("ignore")
 
 from UNet import UNet # get the U-net model 
 
-#loss.requres_grad = True ##RuntimeError: element 0 of tensors does not require grad and does not have a grad_fn
+# image directories
+#train_img_dir = 'images/processed_images/train'
+#train_img_masks_dir = 'images/processed_images/train_masks'
 
 
 
-#******
-# #kaggle images processing - gif to png
+
+# #kaggle images processing
 # import pathlib
 # from pathlib import Path
 
@@ -71,47 +73,40 @@ from UNet import UNet # get the U-net model
 
 # files = list((PATH/'train').iterdir())
 # with concurrent.futures.ThreadPoolExecutor(8) as e: e.map(resize_img, files)
-#******
 
 #kaggle csv
-# df=pd.read_csv('kaggle_data/train_masks_kaggle.csv')
+df=pd.read_csv('kaggle_data/train_masks_kaggle.csv')
 
 # kaggle locations of images
-# train_img_dir='kaggle_data/train-128'
-# train_img_masks_dir='kaggle_data/train_masks-128'
+train_img_dir='kaggle_data/train-128'
+train_img_masks_dir='kaggle_data/train_masks-128'
 
 
-
-# image directories
-train_img_dir = 'images/processed_images/train'
-train_img_masks_dir = 'images/processed_images/train_masks'
 
 #read csv file of image names
-df=pd.read_csv('image_names.csv')
+#df=pd.read_csv('image_names.csv')
 
-#mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
-mean = 0
-std = 255
-
-torch.set_printoptions(threshold=50000) # for debugging, allows to print more of tensors
+mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
+#mean = 0
+#std = 255
 
 # during traning eval phase make a list of transforms to be used.
 # inputs "phase", mean, std
 # outputs list of transformations
 def get_transform(phase,mean,std):
     list_trans=[]
-    if phase == 'train':
+    if phase=='train':
         list_trans.extend([HorizontalFlip(p=0.5)])
     list_trans.extend([Normalize(mean=mean,std=std,p=1),ToTensor()])  #normalizing the data & then converting to tensors
-    list_trans = Compose(list_trans)
+    list_trans=Compose(list_trans)
     return list_trans
 
 # when dataloader requests samples using index it fetches input image and target mask,
 # applys transformation and returns it
 class CityDataset(Dataset):
     def __init__(self, df, train_img_dir, train_img_masks_dir, mean, std, phase):
-        self.fname = df['images'].values.tolist()
-        #self.fname = df['img'].values.tolist() #kaggle one - their csv has this column name
+        #self.fname = df['images'].values.tolist()
+        self.fname = df['img'].values.tolist() #kaggle one
         self.train_img_dir = train_img_dir
         self.train_img_masks_dir = train_img_masks_dir
         self.mean = mean
@@ -119,20 +114,20 @@ class CityDataset(Dataset):
         self.phase = phase
         self.transform = get_transform(phase,mean,std)
     def __getitem__(self, idx):
-        name = self.fname[idx]
+        name = self.fname[idx] # this is the [img] colmn in the csv file
+        
         img_name_path = os.path.join(self.train_img_dir,name)
-        #mask_name_path=img_name_path.split('.')[0].replace('train-128','train_masks-128')+'_mask.png' #kaggle dirs
-        mask_name_path = os.path.join(self.train_img_masks_dir,name)
+        mask_name_path=img_name_path.split('.')[0].replace('train-128','train_masks-128')+'_mask.png' #kaggle dirs
+        #mask_name_path = os.path.join(self.train_img_masks_dir,name)
 
-        img = cv2.imread(img_name_path, cv2.IMREAD_GRAYSCALE) #added to make this grayscale similar to below line
-        #img = cv2.imread(img_name_path) #non grayscale (rgb) version 
+        #img = cv2.imread(img_name_path, cv2.IMREAD_GRAYSCALE) #added to make this grayscale similar to below line
+        img = cv2.imread(img_name_path) #non grayscale (rgb) version 
         mask = cv2.imread(mask_name_path, cv2.IMREAD_GRAYSCALE)
+        
 
-        augmentation = self.transform(image=img,mask=mask)
-
+        augmentation = self.transform(image=img, mask=mask)
         img_aug = augmentation['image'] #[1,572,572] type:Tensor
         mask_aug = augmentation['mask'] #[1,572,572] type:Tensor
-
         return img_aug, mask_aug
 
     def __len__(self):
@@ -140,10 +135,16 @@ class CityDataset(Dataset):
 
 #divide data into train and val and return the dataloader depending upon train or val phase.
 def CityDataloader(df,train_img_dir,train_img_masks_dir,mean,std,phase,batch_size,num_workers):
-    df_train, df_valid = train_test_split(df, test_size=0.2, random_state=69)
-    df = df_train if phase == 'train' else df_valid
-    for_loader = CityDataset(df, train_img_dir, train_img_masks_dir, mean, std, phase)
-    dataloader = DataLoader(for_loader,batch_size=batch_size,num_workers=num_workers,pin_memory=True)
+    if(phase=='train'):
+        df_train, df_valid = train_test_split(df, test_size=0.2, random_state=69)
+        df = df_train if phase == 'train' else df_valid
+        for_loader = CityDataset(df, train_img_dir, train_img_masks_dir, mean, std, phase)
+        dataloader = DataLoader(for_loader,batch_size=batch_size,num_workers=num_workers,pin_memory=True)
+
+    else:
+        df_valid = df
+        for_loader = CityDataset(df, train_img_dir, train_img_masks_dir, mean, std, phase)
+        dataloader = DataLoader(for_loader,batch_size=batch_size,num_workers=num_workers,pin_memory=True)
 
     return dataloader
 
@@ -188,10 +189,10 @@ class Trainer(object):
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
         self.net = model.to(self.device)
         cudnn.benchmark = True
-        #self.criterion = torch.nn.BCEWithLogitsLoss()
-        self.criterion = torch.nn.CrossEntropyLoss()
+        self.criterion = torch.nn.BCEWithLogitsLoss()
         self.optimizer = optim.Adam(self.net.parameters(),lr=self.lr)
         self.scheduler = ReduceLROnPlateau(self.optimizer,mode='min',patience=3,verbose=True)
+        #print("before dataloader called")
         self.dataloaders = {phase: CityDataloader(df, train_img_dir,train_img_masks_dir, mean, std,
                                                 phase=phase,batch_size=self.batch_size[phase],
                                                 num_workers=self.num_workers) for phase in self.phases}
@@ -202,13 +203,28 @@ class Trainer(object):
     def forward(self,inp_images,tar_mask):
         inp_images = inp_images.to(self.device)
         tar_mask = tar_mask.to(self.device)
-        inp_images = inp_images.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
+        #inp_images = inp_images.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
         pred_mask = self.net(inp_images)
+        #print("pred mask is: ")
+        #print(pred_mask)
+        #print("tar mask is: "+tar_mask)
+        #type(pred_mask)
+        #type(tar_mask)
+
+        # print()
+        # print("predicted mask is: ")
+        # print(pred_mask)
+        # print()
+
+        # print()
+        # print("tar_mask mask is: ")
+        # print(tar_mask)
+        # print()
+
+        # so pred mask is tensor [1,2,388,388], target mask is [1,1,388,388]
         # target mask is the one from my preprocessing, pred is what came out of my Unet
-        tar_mask=tar_mask.long()#change it to Long type
-        tar_mask = tar_mask.squeeze(1) #get ris of one dim of target mask to calculate loss
-        loss = self.criterion(pred_mask,tar_mask) #changed from pred_mask to my_tensor
-        return loss, pred_mask #changed from pred_mask to my_tensor
+        loss = self.criterion(pred_mask,tar_mask)
+        return loss, pred_mask
 
     def iterate(self,epoch,phase):
         measure = Scores(phase, epoch)
@@ -230,7 +246,6 @@ class Trainer(object):
                     self.optimizer.step()
                     self.optimizer.zero_grad()
             running_loss += loss.item()
-            #pred_mask = pred_mask.detach().cuda() #cuda expected cpu
             pred_mask = pred_mask.detach().cpu()
             measure.update(mask_target,pred_mask)
         epoch_loss = (running_loss*self.accumulation_steps)/total_batches
@@ -261,14 +276,13 @@ class Trainer(object):
 def main():
     #print("in main of train")
     
-    # model2 = smp.Unet("resnet18", encoder_weights="imagenet", classes=1, activation=None)
-    # model_trainer2 = Trainer(model2)
-    # model_trainer2.start()
+    model2 = smp.Unet("resnet18", encoder_weights="imagenet", classes=1, activation=None)
+    model_trainer2 = Trainer(model2)
+    model_trainer2.start()
     
-    model = UNet()
-    model = model.cuda()#cuda expected but got cpu
-    model_trainer = Trainer(model)
-    model_trainer.start()
+    #model = UNet()
+    #model_trainer = Trainer(model)
+    #model_trainer.start()
     
     #image = torch.rand((1,1,572,572))#creating a test image
     #print(model(image))
