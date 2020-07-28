@@ -38,57 +38,20 @@ from UNet import UNet # get the U-net model
 #train_img_dir = 'images/processed_images/train'
 #train_img_masks_dir = 'images/processed_images/train_masks'
 
-
-
-
-# #kaggle images processing
-# import pathlib
-# from pathlib import Path
-
-# from PIL import Image
-
-# PATH = Path('kaggle_data')
-
-# # using fastai below lines convert the gif image to pil image.
-# (PATH/'train_masks_png').mkdir(exist_ok=True)
-# def convert_img(fn):
-#     fn = fn.name
-#     Image.open(PATH/'train_masks'/fn).save(PATH/'train_masks_png'/f'{fn[:-4]}.png') #opening and saving image
-
-# files = list((PATH/'train_masks').iterdir())
-# with concurrent.futures.ThreadPoolExecutor(8) as e: e.map(convert_img, files)  #uses multi thread for fast conversion
-
-# # we convert the high resolution image mask to 128*128 for starting for the masks.
-# (PATH/'train_masks-128').mkdir(exist_ok=True)
-# def resize_mask(fn):
-#     Image.open(fn).resize((128,128)).save((fn.parent.parent)/'train_masks-128'/fn.name)
-
-# files = list((PATH/'train_masks_png').iterdir())
-# with concurrent.futures.ThreadPoolExecutor(8) as e: e.map(resize_mask, files)
-
-# # # # we convert the high resolution input image to 128*128
-# (PATH/'train-128').mkdir(exist_ok=True)
-# def resize_img(fn):
-#     Image.open(fn).resize((128,128)).save((fn.parent.parent)/'train-128'/fn.name)
-
-# files = list((PATH/'train').iterdir())
-# with concurrent.futures.ThreadPoolExecutor(8) as e: e.map(resize_img, files)
-
 #kaggle csv
 df=pd.read_csv('kaggle_data/train_masks_kaggle.csv')
 
 # kaggle locations of images
-train_img_dir='kaggle_data/train-128'
-train_img_masks_dir='kaggle_data/train_masks-128'
+train_img_dir='kaggle_data/carvana_my_unet/proc/train-572-grayscale'
+train_img_masks_dir='kaggle_data/carvana_my_unet/proc/train_masks-388'
 
 
 
 #read csv file of image names
 #df=pd.read_csv('image_names.csv')
 
-mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
-#mean = 0
-#std = 255
+#mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
+mean, std = 0,255 # for grayscale images
 
 # during traning eval phase make a list of transforms to be used.
 # inputs "phase", mean, std
@@ -117,11 +80,12 @@ class CityDataset(Dataset):
         name = self.fname[idx] # this is the [img] colmn in the csv file
         
         img_name_path = os.path.join(self.train_img_dir,name)
-        mask_name_path=img_name_path.split('.')[0].replace('train-128','train_masks-128')+'_mask.png' #kaggle dirs
+        mask_name_path = img_name_path.split('.')[0].replace('train-572-grayscale','train_masks-388')+'_mask_mask.png' #kaggle dirs
         #mask_name_path = os.path.join(self.train_img_masks_dir,name)
 
-        #img = cv2.imread(img_name_path, cv2.IMREAD_GRAYSCALE) #added to make this grayscale similar to below line
-        img = cv2.imread(img_name_path) #non grayscale (rgb) version 
+
+        img = cv2.imread(img_name_path, cv2.IMREAD_GRAYSCALE) #added to make this grayscale similar to below line
+        #img = cv2.imread(img_name_path) #non grayscale (rgb) version 
         mask = cv2.imread(mask_name_path, cv2.IMREAD_GRAYSCALE)
         
 
@@ -203,24 +167,8 @@ class Trainer(object):
     def forward(self,inp_images,tar_mask):
         inp_images = inp_images.to(self.device)
         tar_mask = tar_mask.to(self.device)
-        #inp_images = inp_images.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
+        inp_images = inp_images.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
         pred_mask = self.net(inp_images)
-        #print("pred mask is: ")
-        #print(pred_mask)
-        #print("tar mask is: "+tar_mask)
-        #type(pred_mask)
-        #type(tar_mask)
-
-        # print()
-        # print("predicted mask is: ")
-        # print(pred_mask)
-        # print()
-
-        # print()
-        # print("tar_mask mask is: ")
-        # print(tar_mask)
-        # print()
-
         # so pred mask is tensor [1,2,388,388], target mask is [1,1,388,388]
         # target mask is the one from my preprocessing, pred is what came out of my Unet
         loss = self.criterion(pred_mask,tar_mask)
@@ -270,19 +218,19 @@ class Trainer(object):
             if val_loss < self.best_loss:
                 print("******** New optimal weights found, saving state ********")
                 state["best_loss"] = self.best_loss = val_loss
-                torch.save(state, "./model_office.pth")
+                torch.save(state, "./model_office_delete.pth")
             print ()
 
 def main():
     #print("in main of train")
     
-    model2 = smp.Unet("resnet18", encoder_weights="imagenet", classes=1, activation=None)
-    model_trainer2 = Trainer(model2)
-    model_trainer2.start()
+    # model2 = smp.Unet("resnet18", encoder_weights="imagenet", classes=1, activation=None)
+    # model_trainer2 = Trainer(model2)
+    # model_trainer2.start()
     
-    #model = UNet()
-    #model_trainer = Trainer(model)
-    #model_trainer.start()
+    model = UNet()
+    model_trainer = Trainer(model)
+    model_trainer.start()
     
     #image = torch.rand((1,1,572,572))#creating a test image
     #print(model(image))
