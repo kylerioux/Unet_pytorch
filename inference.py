@@ -14,7 +14,7 @@ from train import CityDataloader # get the U-net model
 
 mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
 
-df = pd.read_csv('image_names_specific_seg.csv') # kaggle csv
+df = pd.read_csv('image_names_specific_seg.csv') # need a csv to do inference
 
 # kaggle locations of images
 train_img_dir = 'kaggle_data/test_segment_specific/train-128'
@@ -46,7 +46,13 @@ if __name__=="__main__":
         images,mask_target = batch
 
         batch_preds = torch.sigmoid(model(images.to(device))) # make prediction by passing image to model
+        print("batch preds 1")
+        print(batch_preds)
+        print(batch_preds.size())
         batch_preds = batch_preds.detach().cpu().numpy()
+        print("batch preds 2")
+        print(batch_preds)
+        print(batch_preds.size())
         ax1.imshow(np.squeeze(batch_preds),cmap='gray')
         ax2.imshow(np.squeeze(mask_target),cmap='gray')
         
@@ -55,7 +61,7 @@ if __name__=="__main__":
         test = images.numpy()
         test = np.rollaxis(test, 0, 3)  
 
-        ax3.imshow(img)
+        ax3.imshow(test)
 
         plt.show()
         break
