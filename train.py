@@ -18,9 +18,13 @@ from torch.utils.data import DataLoader, Dataset, sampler
 # architecture and data split library
 from sklearn.model_selection import train_test_split
 import segmentation_models_pytorch as smp #-- this was to get u-net architecture
+from random import *
 # augmenation library
-from albumentations import (HorizontalFlip, ShiftScaleRotate, Normalize, Resize, Compose, GaussNoise)
-from albumentations.pytorch import ToTensor
+#from albumentations import (HorizontalFlip, ShiftScaleRotate, Normalize, Resize, Compose, GaussNoise)
+#from albumentations.pytorch import ToTensor
+
+from torchvision.transforms import (Normalize, RandomHorizontalFlip,ToTensor,Compose)
+
 # others
 import os
 import pdb
@@ -56,13 +60,16 @@ mean, std = 0,255 # for grayscale images
 # during traning eval phase make a list of transforms to be used.
 # inputs "phase", mean, std
 # outputs list of transformations
-def get_transform(phase,mean,std):
-    list_trans=[]
-    if phase=='train':
-        list_trans.extend([HorizontalFlip(p=0.5)])
-    list_trans.extend([Normalize(mean=mean,std=std,p=1),ToTensor()])  #normalizing the data & then converting to tensors
-    list_trans=Compose(list_trans)
-    return list_trans
+# def get_transform(phase,mean,std):
+#     list_trans=[]
+#     if phase=='train':
+#         list_trans.extend([RandomHorizontalFlip(p=0.5)])
+#     list_trans.extend([Normalize(mean=mean,std=std),ToTensor()])  #normalizing the data & then converting to tensors
+#     list_trans=Compose(list_trans)
+#     return list_trans
+
+import torchvision.transforms.functional as TF
+from PIL import Image
 
 # when dataloader requests samples using index it fetches input image and target mask,
 # applys transformation and returns it
@@ -75,7 +82,32 @@ class CityDataset(Dataset):
         self.mean = mean
         self.std = std
         self.phase = phase
-        self.transform = get_transform(phase,mean,std)
+        self.isTraining = 0.
+        #self.transform = get_transform(phase,mean,std)
+        # self.transform = Compose([
+        #         RandomHorizontalFlip(p=0.5),
+        #         ToTensor(),
+        #         Normalize(mean=mean, std=std)
+        #     ])
+        # self.transform2 = Compose([
+        #         ToTensor(),
+        #         Normalize(mean=mean, std=std)
+        #     ])
+    def transform(self,image,mask,isTraining):
+        # Random horizontal flipping
+        if random.random() > 0.5 and isTraining==1.:
+            image = TF.hflip(image)
+            mask = TF.hflip(mask)
+            
+        # Transform to tensor
+        image = TF.to_tensor(image)
+        mask = TF.to_tensor(mask)
+
+        image = TF.normalize(image,mean=mean, std=std)
+        #mask = TF.normalize(mask,mean=mean, std=std)
+
+        return image, mask
+
     def __getitem__(self, idx):
         name = self.fname[idx] # this is the [img] colmn in the csv file
         
@@ -87,11 +119,30 @@ class CityDataset(Dataset):
         img = cv2.imread(img_name_path, cv2.IMREAD_GRAYSCALE) #added to make this grayscale similar to below line
         #img = cv2.imread(img_name_path) #non grayscale (rgb) version 
         mask = cv2.imread(mask_name_path, cv2.IMREAD_GRAYSCALE)
-        
 
-        augmentation = self.transform(image=img, mask=mask)
-        img_aug = augmentation['image'] #[1,572,572] type:Tensor
-        mask_aug = augmentation['mask'] #[1,572,572] type:Tensor
+        im_pil = Image.fromarray(img) #convert to PIL image instead of opencv
+        mask_pil = Image.fromarray(mask)
+        
+        if(self.phase=='train'):
+            isTraining = 1.
+
+        img_aug,mask_aug = self.transform(im_pil,mask_pil,isTraining)
+
+        
+            
+        torch.set_printoptions(profile="full")
+        print("mask after aug is: ")
+        print(mask_aug)
+        torch.set_printoptions(profile="default")
+
+
+
+        #augmentation = self.transform(image=img, mask=mask)
+        #img_aug = augmentation['image'] #[1,572,572] type:Tensor
+        #mask_aug = augmentation['mask'] #[1,572,572] type:Tensor
+
+        #print(mask_aug.shape)
+
         return img_aug, mask_aug
 
     def __len__(self):
@@ -167,10 +218,12 @@ class Trainer(object):
     def forward(self,inp_images,tar_mask):
         inp_images = inp_images.to(self.device)
         tar_mask = tar_mask.to(self.device)
-        inp_images = inp_images.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
+        #inp_images = inp_images.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
         pred_mask = self.net(inp_images)
         # so pred mask is tensor [1,2,388,388], target mask is [1,1,388,388]
         # target mask is the one from my preprocessing, pred is what came out of my Unet
+        print("pred mask is: ")
+        print(pred_mask)
         loss = self.criterion(pred_mask,tar_mask)
         return loss, pred_mask
 
