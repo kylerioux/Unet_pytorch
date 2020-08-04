@@ -196,8 +196,8 @@ class Trainer(object):
         self.num_workers = 4
         self.batch_size = {'train':1, 'val':1}
         self.accumulation_steps = 4//self.batch_size['train']
-        self.lr=5e-4
-        self.num_epochs = 10
+        self.lr=1e-3
+        self.num_epochs = 100
         self.phases = ['train','val']
         self.best_loss = float('inf')
         self.device = torch.device("cuda:0")
@@ -271,7 +271,7 @@ class Trainer(object):
             if val_loss < self.best_loss:
                 print("******** New optimal weights found, saving state ********")
                 state["best_loss"] = self.best_loss = val_loss
-                torch.save(state, "./model_office_delete.pth")
+                torch.save(state, "./model_office_100_defaults_epoch_10xlr2_myunet_binary.pth")
             print ()
 
 def main():
@@ -282,6 +282,7 @@ def main():
     # model_trainer2.start()
     
     model = UNet()
+    
     model_trainer = Trainer(model)
     model_trainer.start()
     
