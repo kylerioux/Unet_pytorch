@@ -18,9 +18,14 @@ from torch.utils.data import DataLoader, Dataset, sampler
 # architecture and data split library
 from sklearn.model_selection import train_test_split
 import segmentation_models_pytorch as smp #-- this was to get u-net architecture
+from random import *
 # augmenation library
-from albumentations import (HorizontalFlip, ShiftScaleRotate, Normalize, Resize, Compose, GaussNoise)
-from albumentations.pytorch import (ToTensor, ToTensorV2)
+
+#from albumentations import (HorizontalFlip, ShiftScaleRotate, Normalize, Resize, Compose, GaussNoise)
+#from albumentations.pytorch import ToTensor
+
+from torchvision.transforms import (Normalize, RandomHorizontalFlip,ToTensor,Compose)
+
 # others
 import os
 import pdb
@@ -58,18 +63,6 @@ std = 255
 
 torch.set_printoptions(threshold=50000) # for debugging, allows to print more of tensors
 
-# during traning eval phase make a list of transforms to be used.
-# inputs "phase", mean, std
-# outputs list of transformations
-def get_transform(phase,mean,std):
-    list_trans=[]
-    if phase == 'train':
-        list_trans.extend([HorizontalFlip(p=0.5)])
-    list_trans.extend([Normalize(mean=mean,std=std,p=1),ToTensor()])  #normalizing the data & then converting to tensors
-    list_trans = Compose(list_trans)
-    #print("trans list" )
-    #print(list_trans)
-    return list_trans
 
 from PIL import Image
 import torchvision.transforms.functional as TF
@@ -95,25 +88,16 @@ class CityDataset(Dataset):
             image = TF.hflip(image)       
             mask = TF.hflip(mask)
 
-        #torch.set_printoptions(profile="full") 
         #convert to tensor
         image = TF.to_tensor(image)
-        #print(type(mask))
-        #print("mask before tensor conv: ")
-        #pixels=list(mask.getdata())
-        #print(pixels)
         mask = TF.to_tensor(mask)
         mask=mask*256
         mask=(mask*10**0).round()/(10**0)
-        #print("mask after tensor conv: ")
-        #print(mask)
-        #torch.set_printoptions(profile="default") 
-
-
 
         image = TF.normalize(image, mean=mean, std=std)
-        
+
         return image, mask
+
 
     def __getitem__(self, idx):
         name = self.fname[idx]
@@ -124,13 +108,7 @@ class CityDataset(Dataset):
         img = cv2.imread(img_name_path, cv2.IMREAD_GRAYSCALE) #added to make this grayscale similar to below line
         #img = cv2.imread(img_name_path) #non grayscale (rgb) version 
         mask = cv2.imread(mask_name_path, cv2.IMREAD_GRAYSCALE)
-        #print("mask size: ")
-        #print(mask.shape)
-        #augmentation = self.transform(image=img,mask=mask)
-
-        #img_aug = augmentation['image'] #[1,572,572] type:Tensor
-        #mask_aug = augmentation['mask'] #[1,572,572] type:Tensor
-
+       
         #convert to PIL image
         im_pil = Image.fromarray(img)
         mask_pil = Image.fromarray(mask)
@@ -143,9 +121,10 @@ class CityDataset(Dataset):
         img_aug, mask_aug = self.transform(im_pil,mask_pil,isTraining)
         
         torch.set_printoptions(profile="full")
-        #print("mask aug  is:")
-        #print(mask_aug.shape)
         torch.set_printoptions(profile="default")
+        
+        img_aug,mask_aug = self.transform(im_pil,mask_pil,isTraining)
+
         return img_aug, mask_aug
 
     def __len__(self):
@@ -162,8 +141,16 @@ def CityDataloader(df,train_img_dir,train_img_masks_dir,mean,std,phase,batch_siz
 
 #dice scores
 def dice_score(pred,targs):
-    pred = (pred>0).float()
-    return 2. * (pred*targs).sum() / (pred+targs).sum()
+    pred = torch.argmax(pred,1) #extract mask values
+    targs = targs.squeeze(1)#get rid of channels value to match pred shape
+    correctlyClassified = torch.eq(pred,targs)
+    correctlyClassified= correctlyClassified.numpy()
+    correctlyClassified = np.count_nonzero(correctlyClassified) #count the pixels which were classified correctly
+    numerator = 2. * correctlyClassified #total correctly classified pixels * 2
+    denom = (pred.shape[1]*pred.shape[2] + targs.shape[1]*targs.shape[2]) #total number of pixels in both masks
+    dice = numerator/denom
+    
+    return dice
 
 #initialize a empty list when Scores is called, append the list with dice scores
 #for every batch, at the end of epoch calculates mean of the dice scores
@@ -193,7 +180,7 @@ class Trainer(object):
         self.num_workers = 4
         self.batch_size = {'train':1, 'val':1}
         self.accumulation_steps = 4//self.batch_size['train']
-        self.lr=1e-3
+        self.lr=5e-4
         self.num_epochs = 100
         self.phases = ['train','val']
         self.best_loss = float('inf')
@@ -221,31 +208,16 @@ class Trainer(object):
         #inp_images = inp_images.unsqueeze(0) # adding dimension for batch (s/b 1,1,572,572)
         pred_mask = self.net(inp_images)
         # target mask is the one from my preprocessing, pred is what came out of my Unet
-        #print("target mask: ")
-        #print(tar_mask)
-        
+          
         tar_mask=tar_mask.long()#change it to Long type
         tar_mask = tar_mask.squeeze(1) #get ris of one dim of target mask to calculate loss
         
         #pred_mask=pred_mask.squeeze(0)
         #tar_mask=tar_mask.squeeze(0)
-
-        torch.set_printoptions(profile="full")
-        #print("target mask: ")
-        #print(tar_mask)
-        #torch.set_printoptions(profile="default")
-        #print(torch.argmax(pred_mask,1))
-        #print(tar_mask)
-        #print("tar mask: ")
-        #print(torch.max(tar_mask))
-        #print("pred mask shape: ")
-        #print(pred_mask.shape)
-        torch.set_printoptions(profile="default")
-
-
+   
         loss = self.criterion(pred_mask,tar_mask) #changed from pred_mask to my_tensor
         return loss, pred_mask #changed from pred_mask to my_tensor
-
+       
     def iterate(self,epoch,phase):
         measure = Scores(phase, epoch)
         start = time.strftime("%H:%M:%S")
