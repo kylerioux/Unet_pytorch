@@ -132,12 +132,18 @@ class CityDataset(Dataset):
 
 #divide data into train and val and return the dataloader depending upon train or val phase.
 def CityDataloader(df,train_img_dir,train_img_masks_dir,mean,std,phase,batch_size,num_workers):
-    df_train, df_valid = train_test_split(df, test_size=0.2, random_state=69)
-    df = df_train if phase == 'train' else df_valid
-    for_loader = CityDataset(df, train_img_dir, train_img_masks_dir, mean, std, phase)
-    dataloader = DataLoader(for_loader,batch_size=batch_size,num_workers=num_workers,pin_memory=True)
+        if(phase=='train'):
+            df_train, df_valid = train_test_split(df, test_size=0.2, random_state=69)
+            df = df_train if phase == 'train' else df_valid
+            for_loader = CityDataset(df, train_img_dir, train_img_masks_dir, mean, std, phase)
+            dataloader = DataLoader(for_loader,batch_size=batch_size,num_workers=num_workers,pin_memory=True)
 
-    return dataloader
+        else:
+            df_valid = df
+            for_loader = CityDataset(df, train_img_dir, train_img_masks_dir, mean, std, phase)
+            dataloader = DataLoader(for_loader,batch_size=batch_size,num_workers=num_workers,pin_memory=True)
+
+        return dataloader
 
 #dice scores
 def dice_score(pred,targs):
@@ -180,7 +186,7 @@ class Trainer(object):
         self.num_workers = 4
         self.batch_size = {'train':1, 'val':1}
         self.accumulation_steps = 4//self.batch_size['train']
-        self.lr=5e-4
+        self.lr=5e-3
         self.num_epochs = 100
         self.phases = ['train','val']
         self.best_loss = float('inf')
@@ -191,7 +197,7 @@ class Trainer(object):
         #self.criterion = torch.nn.BCEWithLogitsLoss()
         self.criterion = torch.nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.net.parameters(),lr=self.lr)
-        self.scheduler = ReduceLROnPlateau(self.optimizer,mode='min',patience=30,verbose=True)
+        self.scheduler = ReduceLROnPlateau(self.optimizer,mode='min',patience=3,verbose=True)
         self.dataloaders = {phase: CityDataloader(df, train_img_dir,train_img_masks_dir, mean, std,
                                                 phase=phase,batch_size=self.batch_size[phase],
                                                 num_workers=self.num_workers) for phase in self.phases}
@@ -263,7 +269,7 @@ class Trainer(object):
             if val_loss < self.best_loss:
                 print("******** New optimal weights found, saving state ********")
                 state["best_loss"] = self.best_loss = val_loss
-                torch.save(state, "./model_office_12seg.pth")
+                torch.save(state, "./model_office_12seg_2.pth")
             print ()
 
 def main():
