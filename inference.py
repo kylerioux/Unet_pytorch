@@ -12,15 +12,15 @@ import os
 
 from train import CityDataloader # get the U-net model 
 
-mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
-
+#mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
+mean,std = (0,255)
 df = pd.read_csv('image_names_specific_seg.csv') # need a csv to do inference
 
 # kaggle locations of images
-train_img_dir = 'kaggle_data/test_segment_specific/train-128'
-train_img_masks_dir = 'kaggle_data/test_segment_specific/train_masks-128'
+train_img_dir = 'test_segment_specific/train'
+train_img_masks_dir = 'test_segment_specific/train_masks'
 
-ckpt_path = 'model_office.pth'
+ckpt_path = 'model_office_12seg.pth'
 
 device = torch.device("cuda")
 

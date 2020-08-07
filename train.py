@@ -55,7 +55,7 @@ train_img_dir = 'images/processed_images/train'
 train_img_masks_dir = 'images/processed_images/train_masks'
 
 #read csv file of image names
-df=pd.read_csv('image_names.csv')
+df=pd.read_csv('image_names_specific_seg.csv')
 
 #mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
 mean = 0
@@ -72,8 +72,8 @@ isTraining=0
 # applys transformation and returns it
 class CityDataset(Dataset):
     def __init__(self, df, train_img_dir, train_img_masks_dir, mean, std, phase):
-        self.fname = df['images'].values.tolist()
-        #self.fname = df['img'].values.tolist() #kaggle one - their csv has this column name
+        #self.fname = df['images'].values.tolist()
+        self.fname = df['img'].values.tolist() #kaggle one - their csv has this column name
         self.train_img_dir = train_img_dir
         self.train_img_masks_dir = train_img_masks_dir
         self.mean = mean
