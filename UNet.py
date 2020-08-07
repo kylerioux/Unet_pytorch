@@ -22,7 +22,7 @@ def double_conv(in_c,out_c):
         nn.Conv2d(out_c,out_c,kernel_size=3),
         nn.ReLU(inplace=True)
     )
-    conv.apply(init_weights)
+    #conv.apply(init_weights)
     return conv
 
 def crop_image(largerTensor,smallerTensor):
@@ -49,25 +49,25 @@ class UNet(nn.Module):
         # each up conv(trans conv part) halves feature channels and doubles the spatial size
         self.trans_conv_2x2_1 = nn.ConvTranspose2d(in_channels=1024,out_channels=512,kernel_size=2,stride=2) 
         #wasnt able to find stride for transposed conv in paper--assume 2 is implied by halving feature channels/doubling spatial size
-        torch.nn.init.normal_(tensor=self.trans_conv_2x2_1.weight,std = math.sqrt(2/(1024*2*2)))
+        #torch.nn.init.normal_(tensor=self.trans_conv_2x2_1.weight,std = math.sqrt(2/(1024*2*2)))
         
         self.up_conv_1 = double_conv(1024,512) #input to this is the concatinated tensors
         
         self.trans_conv_2x2_2 = nn.ConvTranspose2d(512,256,kernel_size=2,stride=2)
-        torch.nn.init.normal_(self.trans_conv_2x2_2.weight,std = math.sqrt(2/(512*2*2)))
+        #torch.nn.init.normal_(self.trans_conv_2x2_2.weight,std = math.sqrt(2/(512*2*2)))
 
         self.up_conv_2 = double_conv(512,256) 
 
         self.trans_conv_2x2_3 = nn.ConvTranspose2d(256,128,kernel_size=2,stride=2)
-        torch.nn.init.normal_(self.trans_conv_2x2_3.weight,std = math.sqrt(2/(256*2*2)))
+        #torch.nn.init.normal_(self.trans_conv_2x2_3.weight,std = math.sqrt(2/(256*2*2)))
         
         self.up_conv_3 = double_conv(256,128)  
 
         self.trans_conv_2x2_4 = nn.ConvTranspose2d(128,64,kernel_size=2,stride=2)
-        torch.nn.init.normal_(self.trans_conv_2x2_4.weight,std = math.sqrt(2/(128*2*2)))
+        #torch.nn.init.normal_(self.trans_conv_2x2_4.weight,std = math.sqrt(2/(128*2*2)))
         self.up_conv_4 = double_conv(128,64) #input to this is the concatinated tensors
 
-        self.output = nn.Conv2d(in_channels=64,out_channels=1, kernel_size=1)#out_channels is number of segmentation labels
+        self.output = nn.Conv2d(in_channels=64,out_channels=50, kernel_size=1)#out_channels is number of segmentation labels
 
     def forward(self,image):
         #this is the encoder (forward pass)
