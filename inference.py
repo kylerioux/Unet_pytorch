@@ -14,6 +14,8 @@ from train import CityDataloader # get the U-net model
 
 #mean, std = (0.485, 0.456, 0.406),(0.229, 0.224, 0.225) # for rbg images, related to imagenet
 mean,std = (0,255)
+from UNet import UNet # get the U-net model 
+
 df = pd.read_csv('image_names_specific_seg.csv') # need a csv to do inference
 
 # kaggle locations of images
@@ -30,7 +32,8 @@ img = mpimg.imread(inference_image_fullpath)
 
 if __name__=="__main__":  
     test_dataloader = CityDataloader(df,train_img_dir,train_img_masks_dir,mean,std,'val',1,4)
-    model = smp.Unet("resnet18", encoder_weights=None, classes=1, activation=None)
+    #model = smp.Unet("resnet18", encoder_weights=None, classes=1, activation=None)
+    model = UNet()
     model.to(device)
     #torch.no_grad() # this disallows gradient descent/weight change
     model.eval() # sets to evaluation mode (not training)
@@ -45,23 +48,30 @@ if __name__=="__main__":
         
         images,mask_target = batch
 
-        batch_preds = torch.sigmoid(model(images.to(device))) # make prediction by passing image to model
-        print("batch preds 1")
-        print(batch_preds)
-        print(batch_preds.size())
-        batch_preds = batch_preds.detach().cpu().numpy()
-        print("batch preds 2")
-        print(batch_preds)
-        print(batch_preds.size())
+        #batch_preds = torch.sigmoid(model(images.to(device))) # make prediction by passing image to model
+        #pred = net()
+        batch_preds = model(images.to(device))
+
+        #pred_mask = torch.argmax(pred_mask,1) #extract mask values
+        #batch_preds = torch.argmax(batch_preds,1)
+
+        batch_preds = batch_preds.detach().cpu()
+        batch_preds = torch.argmax(batch_preds,1) #extract mask values
+
+
+        #batch_preds = (batch_preds>0).float()
+        #batch_preds = batch_preds.detach().cpu().numpy()
+
         ax1.imshow(np.squeeze(batch_preds),cmap='gray')
         ax2.imshow(np.squeeze(mask_target),cmap='gray')
         
         # get original image on plot
-        images = images.squeeze(0)
-        test = images.numpy()
-        test = np.rollaxis(test, 0, 3)  
+        #images = images.squeeze(0)
+        #test = images.numpy()
+        #test = np.rollaxis(test, 0, 3)  
+        ax3.imshow(np.squeeze(images),cmap='gray')
 
-        ax3.imshow(test)
+        #ax3.imshow(images)
 
         plt.show()
         break
